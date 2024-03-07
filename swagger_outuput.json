@@ -1,0 +1,44 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "titel": "Mon API",
+    "description": "Mon API",
+    "version": "1.0.0",
+    "title": "REST API"
+  },
+  "host": "localhost:3000",
+  "basePath": "/",
+  "schemes": [
+    "http"
+  ],
+  "paths": {
+    "/movies": {
+      "get": {
+        "description": "Récupérer les films",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/movie/{id}": {
+      "get": {
+        "description": "Récupérer un film avec ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  }
+}
