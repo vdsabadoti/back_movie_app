@@ -3,6 +3,7 @@ const express = require('express')
 const mongoose = require('mongoose')
 const uniqid = require('uniqid')
 const jwt = require('jsonwebtoken')
+const bcrypt = require("bcrypt")
 
 const secretJwtKey = "key"
 //Creating a model with .model(the name of the model, the class, the name of the collection (table))
@@ -14,6 +15,16 @@ const Movie = mongoose.model('Movie',
                                         duration: Number,
                                         year: Number
                                         }, "movies");
+
+const User = mongoose.model('User',
+                                        {
+                                        mail : String, 
+                                        password : String,
+                                        nickname : String,
+                                        city : String,
+                                        postalCode : String,
+                                        phoneNumber : String 
+                                        }, "users");
 
 //Url mongo + name of db
 const urlMongo = "mongodb://127.0.0.1:27017/movie_app"
@@ -42,8 +53,19 @@ const swaggerDocument = require('./swagger_outuput.json');
 
 app.use('/api-docs', swaggerUI.serve, swaggerUI.setup(swaggerDocument));
 
-
-
+//-------- FUNCTIONS ------//
+async function hashPassword(plaintextPassword) {
+    return await bcrypt.hash(plaintextPassword, 10);
+}
+ 
+async function comparePassword(plaintextPassword, hash) {
+    console.log(plaintextPassword);
+    console.log(hash);
+    let result = await bcrypt.compare(plaintextPassword, hash);
+    console.log(result);
+    return result;
+}
+//------------------------------------------//
 
 //Routing
 app.get('/movies', async (request, response) => {
@@ -62,6 +84,7 @@ app.get('/movies', async (request, response) => {
 //Create a middleware to verify token, and reuse everywhere we need verification
 function tokenVerification(request, response, next){
     const token = request.headers['authorization'];
+    console.log(token);
 
     //Pb n° 1 : no token
     if (!token){
@@ -94,7 +117,7 @@ app.get('/v2/movies', tokenVerification, async (request, response) => {
 
 })
 
-app.get('/movie/:id', async (request, response) => {
+app.get('/v2/movie/:id', tokenVerification, async (request, response) => {
 
     /* 
             #swagger.description = 'Récupérer un film avec ID'
@@ -108,7 +131,7 @@ app.get('/movie/:id', async (request, response) => {
 
 })
 
-app.post('/movie/create', async (req, res) => {
+app.post('/v2/movie/create', tokenVerification, async (req, response) => {
     
     /* 
             #swagger.description = 'Create un film avec ID' 
@@ -121,13 +144,13 @@ app.post('/movie/create', async (req, res) => {
    movie.synopsis = req.body.synopsis
    movie.duration = req.body.duration
    await movie.save();
-   res.json('OK');
+   response.json({code: "200", message: "Success", data: movie});
     
 })
             
 
 
-app.post('/movie/edit/:id?', async (req, response) => {
+app.post('/v2/movie/edit/:id?', tokenVerification, async (req, response) => {
     
     /* 
             #swagger.description = 'Update/create un film avec ID' 
@@ -148,23 +171,48 @@ app.post('/movie/edit/:id?', async (req, response) => {
             movie.synopsis = req.body.synopsis;
             movie.duration = req.body.duration; 
             await movie.save();
-            response.json('OK');                  
+            return response.json({code: "200", message: "Movie updated", data: movie});                
 })
 
-app.delete('/movie/delete/:id', async (req,res) => { 
+app.delete('/v2/movie/delete/:id', tokenVerification, async (req,response) => { 
  
     /* 
             #swagger.description = 'Delete un film avec ID' 
     */
     await Movie.findOneAndDelete({id: req.params.id});
-    res.json("OK");
+    return response.json({code: "200", message: "Movie deleted"});
     }); 
 
-app.post('/login', async (req, res) =>{
-    //generer le token (des verifs à ajouter après)
-    const token = jwt.sign({mail : "mail@mail.com"}, secretJwtKey, { expiresIn : '1h'})
+app.post('/login', async (req, response) =>{
 
-    return res.json({token});
+    let user = await  User.findOne({ mail : req.body.mail });
+    
+    if (user) {
+        if (await comparePassword(req.body.password, user.password) == true) {
+            const token = jwt.sign({mail : user.mail}, secretJwtKey, { expiresIn : '1h'}) 
+            console.log('login is OK');
+            return response.json({code: "200", message: "Login success", data: token});
+        } 
+        return response.json({code: "402", message: "Wrong credentials", data: {mail : req.body.mail}});        
+    }
+    return response.json({code: "401", message: "Wrong credentials", data: {mail : req.body.mail}});
+}
+)
+
+app.post('/signup', async (req, response) =>{
+
+    let userDB = await User.findOne({ mail : req.body.mail });
+    if (!userDB){
+        const user = new User();
+        user.mail = req.body.mail;
+        user.password = await hashPassword(req.body.password);
+
+        //verifier unicité du username avant de créer l'user
+        await user.save();
+        console.log("user is ok");
+        return response.json({code: "200", message: "User created with success", data: user});
+    }
+    return response.json({code: "407", message: "This mail already exists", data: { mail : req.body.mail }});
 }
 )
     
@@ -173,3 +221,4 @@ app.post('/login', async (req, res) =>{
 app.listen(3000, () => {
     console.log("Server launched");}
     );
+
