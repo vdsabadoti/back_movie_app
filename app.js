@@ -2,7 +2,9 @@ const cors = require('cors')
 const express = require('express')
 const mongoose = require('mongoose')
 const uniqid = require('uniqid')
+const jwt = require('jsonwebtoken')
 
+const secretJwtKey = "key"
 //Creating a model with .model(the name of the model, the class, the name of the collection (table))
 const Movie = mongoose.model('Movie',
                                         {
@@ -30,16 +32,16 @@ mongoose.connection.on('error', () => {
 //Start the application
 const app = express();
 
+//JSON cors
+app.use(express.json());
+app.use(cors());
 
 //Swagger middleware
 const swaggerUI = require('swagger-ui-express');
 const swaggerDocument = require('./swagger_outuput.json');
 
-//JSON cors
-app.use(express.json());
-app.use(cors());
-
 app.use('/api-docs', swaggerUI.serve, swaggerUI.setup(swaggerDocument));
+
 
 
 
@@ -52,7 +54,43 @@ app.get('/movies', async (request, response) => {
 
     const movies = await Movie.find();
     //Response = json of persons
-    response.json(movies);
+    //response.json(movies);
+    response.json({code: "200", message: "Success", data: movies});
+
+})
+
+//Create a middleware to verify token, and reuse everywhere we need verification
+function tokenVerification(request, response, next){
+    const token = request.headers['authorization'];
+
+    //Pb n° 1 : no token
+    if (!token){
+        return response.status(403).json({message : "Token not found"})
+    }
+
+    //Pb n° 2 : invalid token
+    jwt.verify(token, secretJwtKey, (err, decoded) => {
+        if (err) {
+            return response.status(401).json({message : "Token is invalid : not authorized"})
+        }
+        //FYI => decoded is the object, so we can add the user (mail) at the request
+        request.user = decoded;
+        next();
+    })
+
+}
+
+//Token is needed and we verify it with a middleware
+app.get('/v2/movies', tokenVerification, async (request, response) => {
+
+    /* 
+            #swagger.description = 'Récupérer les films avec un token'
+    */
+
+    const movies = await Movie.find();
+    //Response = json of persons
+    //response.json(movies);
+    response.json({code: "200", message: "Success", data: movies});
 
 })
 
@@ -65,7 +103,8 @@ app.get('/movie/:id', async (request, response) => {
     const idRequest = parseInt(request.params.id);
     const movie = await Movie.findOne({ id : idRequest});
     //Response = json of persons
-    response.json(movie);
+    //response.json(movie);
+    response.json({code: "200", message: "Success", data: movie});
 
 })
 
@@ -120,6 +159,14 @@ app.delete('/movie/delete/:id', async (req,res) => {
     await Movie.findOneAndDelete({id: req.params.id});
     res.json("OK");
     }); 
+
+app.post('/login', async (req, res) =>{
+    //generer le token (des verifs à ajouter après)
+    const token = jwt.sign({mail : "mail@mail.com"}, secretJwtKey, { expiresIn : '1h'})
+
+    return res.json({token});
+}
+)
     
 
 //Start the server

@@ -22,6 +22,29 @@
         }
       }
     },
+    "/v2/movies": {
+      "get": {
+        "description": "Récupérer les films avec un token",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
     "/movie/{id}": {
       "get": {
         "description": "Récupérer un film avec ID",
@@ -123,6 +146,16 @@
             "type": "string"
           }
         ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/login": {
+      "post": {
+        "description": "",
         "responses": {
           "200": {
             "description": "OK"
