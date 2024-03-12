@@ -4,6 +4,7 @@ const mongoose = require('mongoose')
 const uniqid = require('uniqid')
 const jwt = require('jsonwebtoken')
 const bcrypt = require("bcrypt")
+const helper = require('./helper')
 
 const secretJwtKey = "key"
 //Creating a model with .model(the name of the model, the class, the name of the collection (table))
@@ -81,30 +82,64 @@ app.get('/movies', async (request, response) => {
 
 })
 
-//Create a middleware to verify token, and reuse everywhere we need verification
-function tokenVerification(request, response, next){
+//Create a tokenVerification
+function tokenVerification(request) {
+    
     const token = request.headers['authorization'];
     console.log(token);
+    var valid = false;
 
     //Pb n° 1 : no token
     if (!token){
-        return response.status(403).json({message : "Token not found"})
+        console.log("No token");
+        valid = false;
     }
 
     //Pb n° 2 : invalid token
     jwt.verify(token, secretJwtKey, (err, decoded) => {
         if (err) {
-            return response.status(401).json({message : "Token is invalid : not authorized"})
+            console.log("Token invalid");
+            valid = false;
+        }
+        //FYI => decoded is the object, so we can add the user (mail) at the request
+        //request.user = decoded;
+        console.log("Token is valid");
+        valid = true;
+    })
+
+    return valid;
+}
+
+//Create a middleware to verify token, reuse token verification, and reuse everywhere we need verification
+function tokenVerificationMidleware(request, response, next){
+    
+    const token = request.headers['authorization'];
+    console.log(token);
+
+    //Pb n° 1 : no token
+    if (!token){
+        console.log("No token");
+        return response.status(401).json("Not authorized")
+    }
+
+    //Pb n° 2 : invalid token
+    jwt.verify(token, secretJwtKey, (err, decoded) => {
+        if (err) {
+            console.log("Token invalid");
+            return response.status(401).json("Not authorized")
         }
         //FYI => decoded is the object, so we can add the user (mail) at the request
         request.user = decoded;
+        console.log("Token is valid");
         next();
     })
+    
+ 
 
 }
 
 //Token is needed and we verify it with a middleware
-app.get('/v2/movies', tokenVerification, async (request, response) => {
+app.get('/v2/movies', tokenVerificationMidleware, async (request, response) => {
 
     /* 
             #swagger.description = 'Récupérer les films avec un token'
@@ -117,7 +152,7 @@ app.get('/v2/movies', tokenVerification, async (request, response) => {
 
 })
 
-app.get('/v2/movie/:id', tokenVerification, async (request, response) => {
+app.get('/v2/movie/:id', tokenVerificationMidleware, async (request, response) => {
 
     /* 
             #swagger.description = 'Récupérer un film avec ID'
@@ -131,7 +166,7 @@ app.get('/v2/movie/:id', tokenVerification, async (request, response) => {
 
 })
 
-app.post('/v2/movie/create', tokenVerification, async (req, response) => {
+app.post('/v2/movie/create', tokenVerificationMidleware, async (req, response) => {
     
     /* 
             #swagger.description = 'Create un film avec ID' 
@@ -150,7 +185,7 @@ app.post('/v2/movie/create', tokenVerification, async (req, response) => {
             
 
 
-app.post('/v2/movie/edit/:id?', tokenVerification, async (req, response) => {
+app.post('/v2/movie/edit/:id?', tokenVerificationMidleware, async (req, response) => {
     
     /* 
             #swagger.description = 'Update/create un film avec ID' 
@@ -174,7 +209,7 @@ app.post('/v2/movie/edit/:id?', tokenVerification, async (req, response) => {
             return response.json({code: "200", message: "Movie updated", data: movie});                
 })
 
-app.delete('/v2/movie/delete/:id', tokenVerification, async (req,response) => { 
+app.delete('/v2/movie/delete/:id', tokenVerificationMidleware, async (req,response) => { 
  
     /* 
             #swagger.description = 'Delete un film avec ID' 
@@ -191,11 +226,11 @@ app.post('/login', async (req, response) =>{
         if (await comparePassword(req.body.password, user.password) == true) {
             const token = jwt.sign({mail : user.mail}, secretJwtKey, { expiresIn : '1h'}) 
             console.log('login is OK');
-            return response.json({code: "200", message: "Login success", data: token});
+            return helper.buildResponse(response, "200", "Login success", token);
         } 
-        return response.json({code: "402", message: "Wrong credentials", data: {mail : req.body.mail}});        
+        return helper.buildResponse(response, "402", "Wrong credentials", {mail : req.body.mail});     
     }
-    return response.json({code: "401", message: "Wrong credentials", data: {mail : req.body.mail}});
+    return helper.buildResponse(response, "401", "Wrong credentials", {mail : req.body.mail}); 
 }
 )
 
@@ -215,6 +250,16 @@ app.post('/signup', async (req, response) =>{
     return response.json({code: "407", message: "This mail already exists", data: { mail : req.body.mail }});
 }
 )
+
+app.get('/verify-token', async (request, response) => {
+
+    if (tokenVerification(request) == true){
+        console.log("token verification is TRUE");
+        return helper.buildResponse(response, "200", "Connected", true)
+    } else {
+        return helper.buildResponse(response, "740", "Not connected", false)
+    }
+})
     
 
 //Start the server
