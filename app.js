@@ -112,30 +112,11 @@ function tokenVerification(request) {
 
 //Create a middleware to verify token, reuse token verification, and reuse everywhere we need verification
 function tokenVerificationMidleware(request, response, next){
-    
-    const token = request.headers['authorization'];
-    console.log(token);
-
-    //Pb n° 1 : no token
-    if (!token){
-        console.log("No token");
+    if (tokenVerification(request) == true) {
+        next();
+    } else {
         return response.status(401).json("Not authorized")
     }
-
-    //Pb n° 2 : invalid token
-    jwt.verify(token, secretJwtKey, (err, decoded) => {
-        if (err) {
-            console.log("Token invalid");
-            return response.status(401).json("Not authorized")
-        }
-        //FYI => decoded is the object, so we can add the user (mail) at the request
-        request.user = decoded;
-        console.log("Token is valid");
-        next();
-    })
-    
- 
-
 }
 
 //Token is needed and we verify it with a middleware
