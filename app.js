@@ -17,7 +17,7 @@ const Movie = mongoose.model('Movie',
                                         year: Number
                                         }, "movies");
 
-const User = mongoose.model('User',
+const Person = mongoose.model('Person',
                                         {
                                         mail : String, 
                                         password : String,
@@ -25,7 +25,7 @@ const User = mongoose.model('User',
                                         city : String,
                                         postalCode : String,
                                         phoneNumber : String 
-                                        }, "users");
+                                        }, "persons");
 
 //Url mongo + name of db
 const urlMongo = "mongodb://127.0.0.1:27017/movie_app"
@@ -201,7 +201,7 @@ app.delete('/v2/movie/delete/:id', tokenVerificationMidleware, async (req,respon
 
 app.post('/login', async (req, response) =>{
 
-    let user = await  User.findOne({ mail : req.body.mail });
+    let user = await  Person.findOne({ mail : req.body.mail });
     
     if (user) {
         if (await comparePassword(req.body.password, user.password) == true) {
@@ -217,9 +217,9 @@ app.post('/login', async (req, response) =>{
 
 app.post('/signup', async (req, response) =>{
 
-    let userDB = await User.findOne({ mail : req.body.mail });
+    let userDB = await Person.findOne({ mail : req.body.mail });
     if (!userDB){
-        const user = new User();
+        const user = new Person();
         user.mail = req.body.mail;
         user.password = await hashPassword(req.body.password);
 

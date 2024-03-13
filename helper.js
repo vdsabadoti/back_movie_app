@@ -9,4 +9,6 @@ module.exports = {
         return response.json(this.buildJsonResponse(_code, _message, _data))
     }
 
+    
+
 }
