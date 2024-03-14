@@ -100,23 +100,50 @@ function tokenVerification(request) {
         if (err) {
             console.log("Token invalid");
             valid = false;
-        }
+        } else {
         //FYI => decoded is the object, so we can add the user (mail) at the request
         //request.user = decoded;
         console.log("Token is valid");
         valid = true;
+        }
     })
 
     return valid;
 }
 
 //Create a middleware to verify token, reuse token verification, and reuse everywhere we need verification
-function tokenVerificationMidleware(request, response, next){
+async function tokenVerificationMidleware(request, response, next){
+    
+    const token = request.headers['authorization'];
+    console.log(token);
+
+    //Pb n° 1 : no token
+    if (!token){
+        console.log("No token");
+        return response.status(401).json("Not authorized")
+    }
+
+    //Pb n° 2 : invalid token
+    jwt.verify(token, secretJwtKey, (err, decoded) => {
+        if (err) {
+            console.log("Token invalid");
+            return response.status(401).json("Not authorized");
+        } else {
+        //FYI => decoded is the object, so we can add the user (mail) at the request
+        //request.user = decoded;
+        console.log("Token is valid");
+        next();
+        }
+    })
+    
+    /*OPTION 2
+    
     if (tokenVerification(request) == true) {
         next();
     } else {
         return response.status(401).json("Not authorized")
     }
+    */
 }
 
 //Token is needed and we verify it with a middleware
@@ -147,6 +174,35 @@ app.get('/v2/movie/:id', tokenVerificationMidleware, async (request, response) =
 
 })
 
+app.get('/movie/:id',  async (request, response) => {
+
+    /* 
+            #swagger.description = 'Récupérer un film avec ID'
+    */
+
+    const idRequest = parseInt(request.params.id);
+    const movie = await Movie.findOne({ id : idRequest});
+    //Response = json of persons
+    //response.json(movie);
+    response.json({code: "200", message: "Success", data: movie});
+
+})
+
+
+app.get('/person/:mail', tokenVerificationMidleware, async (request, response) => {
+
+    /* 
+            #swagger.description = 'Get person by mail'
+    */
+
+    const person = await  Person.findOne({ mail : request.params.mail });
+
+    //Response = json of persons
+    //response.json(movie);
+    response.json({code: "200", message: "Success", data: person});
+
+})
+
 app.post('/v2/movie/create', tokenVerificationMidleware, async (req, response) => {
     
     /* 
@@ -160,7 +216,8 @@ app.post('/v2/movie/create', tokenVerificationMidleware, async (req, response) =
    movie.synopsis = req.body.synopsis
    movie.duration = req.body.duration
    await movie.save();
-   response.json({code: "200", message: "Success", data: movie});
+
+   response.json({code: "202", message: "Success", data: movie});
     
 })
             
@@ -190,6 +247,29 @@ app.post('/v2/movie/edit/:id?', tokenVerificationMidleware, async (req, response
             return response.json({code: "200", message: "Movie updated", data: movie});                
 })
 
+app.post('/person/modify', tokenVerificationMidleware, async (req, response) => {
+    
+    /* 
+            #swagger.description = 'Update/create un film avec ID' 
+    */
+   /*
+            const movie = new Movie();
+            if (req.params.id) {
+                movie.id = Math.random()
+            } else {
+                const idRequest = parseInt(req.params.id);
+                movie = await Movie.findOne({ id : idRequest});
+            }
+            */
+            person = await Person.findOne({ mail : req.body.mail });
+            person.nickname = req.body.nickname,
+            person.city = req.body.city,
+            person.postalCode = req.body.postalCode,
+            person.phoneNumber = req.body.phoneNumber 
+            await person.save();
+            return response.json({code: "200", message: "Updated", data: person});                
+})
+
 app.delete('/v2/movie/delete/:id', tokenVerificationMidleware, async (req,response) => { 
  
     /* 
@@ -217,11 +297,17 @@ app.post('/login', async (req, response) =>{
 
 app.post('/signup', async (req, response) =>{
 
+    console.log('inside post');
     let userDB = await Person.findOne({ mail : req.body.mail });
+    console.log(userDB);
     if (!userDB){
         const user = new Person();
         user.mail = req.body.mail;
         user.password = await hashPassword(req.body.password);
+        user.nickname = req.body.nickname;
+        user.postalCode = req.body.postalCode;
+        user.city = req.body.city;
+        user.phoneNumber = req.body.phoneNumber;
 
         //verifier unicité du username avant de créer l'user
         await user.save();
