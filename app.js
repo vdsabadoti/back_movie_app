@@ -83,11 +83,11 @@ app.get('/movies', async (request, response) => {
 })
 
 //Create a tokenVerification
-function tokenVerification(request) {
+async function tokenVerification(request) {
     
     const token = request.headers['authorization'];
     console.log(token);
-    var valid = false;
+    let valid = false;
 
     //Pb n° 1 : no token
     if (!token){
